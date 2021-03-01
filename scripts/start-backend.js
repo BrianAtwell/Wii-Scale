@@ -43,4 +43,10 @@ exports.start = function() {
 	child.stdout.on('data', function (data) {
 		console.log(data.toString());
 	});
+
+	if(typeof child.pid !== 'undefined')
+	{
+		return child.pid;
+	}
+	return undefined;
 }

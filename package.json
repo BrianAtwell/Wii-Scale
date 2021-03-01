@@ -19,7 +19,8 @@
   },
   "scripts": {
     "test": "mocha",
-    "start": "node scripts/start.js"
+    "start": "node scripts/start.js",
+    "stop": "node scripts/stop.js"
   },
   "dependencies": {
     "angular-cookies": "^1.7.2",
@@ -27,7 +28,8 @@
     "express": "4.12.0",
     "lokijs": "1.3.7",
     "save-csv": "^4.0.7",
-    "socket.io": "1.3.4"
+    "socket.io": "1.3.4",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "angular": "^1.4.3",
