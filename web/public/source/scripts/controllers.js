@@ -44,6 +44,7 @@
                 measuring: false,
                 done: false,
                 disconnecting: false,
+				timedout: false,
                 warning: false,
 
                 dismiss: function() {
@@ -53,6 +54,7 @@
                     this.measuring = false;
                     this.done = false;
                     this.disconnecting = false;
+					this.timedout = false;
                     this.warning = false;
                 }
             };
@@ -170,6 +172,14 @@
                     case "DISCONNECTED":
                         $scope.status.dismiss();
                         $scope.status.start = true;
+
+                        $scope.controls.connect = true;
+                        $scope.controls.disconnect = false;
+                        break;
+						
+					case "CONNECTION TIMEDOUT":
+                        $scope.status.dismiss();
+                        $scope.status.timedout = true;
 
                         $scope.controls.connect = true;
                         $scope.controls.disconnect = false;

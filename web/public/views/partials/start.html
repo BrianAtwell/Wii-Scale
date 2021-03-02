@@ -134,6 +134,13 @@
 	                    Disconnecting
 	                </p>
 	            </status>
+				
+				<status type="warning" ng-show="status.timedout">
+	                <i class="fa fa-exclamation-triangle"></i>
+	                <p>
+	                    Connection Timedout looking for Wii Balance Board. Make sure that it is paired and connected.
+	                </p>
+	            </status>
 	            
 	            <status type="warning" ng-show="status.warning">
 	                <i class="fa fa-exclamation-triangle"></i>

@@ -36,6 +36,12 @@ namespace options = boost::program_options;
 sio::socket::ptr current_socket;
 std::unique_ptr<XWiiIface> board;
 
+enum ConnectionStatus { CS_WAITING_COMMAND, CS_START_CONNECTING, CS_CONNECTED};
+
+ConnectionStatus connection_status=CS_WAITING_COMMAND;
+std::chrono::milliseconds start_connecting_initial_ms;
+int start_connecting_timeout=20000;
+
 const int sensitivity = 3000; // as 10ths of a kg
 
 // Number of standard deviations less than the mean to discard at start
@@ -119,6 +125,8 @@ int main(int argc, const char* argv[])
     std::string host = "localhost";
     int port = 8080;
     double calibrate = 0;
+	// Initialize to dummy state to prevent unassigned state unstability
+	start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
 
     options::options_description desc("wii-scale");
 
@@ -150,17 +158,37 @@ int main(int argc, const char* argv[])
 
     current_socket->on("wiiscale-connect", [&](sio::event& ev)
     {
+		/*
         send_status("CONNECTING");
         board = connect();
 
         send_status(board ? "CONNECTED" : "NO DEVICE FOUND");
+		*/
+		send_status("CONNECTING");
+		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
+        connection_status=CS_START_CONNECTING;
     });
+	
+	/*
+	current_socket->on("wiiscale-connect-start", [&](sio::event& ev)
+    {
+        send_status("CONNECTING");
+		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(system_clock::now().time_since_epoch());
+        connection_status=CS_START_CONNECTING;
+    });
+	
+	current_socket->on("wiiscale-connect-stop", [&](sio::event& ev)
+    {
+        connection_status=CS_WAITING_COMMAND;
+    });
+	*/
 
     current_socket->on("wiiscale-disconnect", [&](sio::event& ev)
     {
         if(board)
         {
             board->Disconnect();
+			connection_status=CS_WAITING_COMMAND;
         }
     });
 
@@ -170,7 +198,42 @@ int main(int argc, const char* argv[])
         if(!board)
         {
             // Waiting for connection or command
-            usleep(100000);
+			if(connection_status == CS_WAITING_COMMAND)
+			{
+				usleep(1000);
+			}
+			else if(connection_status == CS_START_CONNECTING)
+			{
+				send_status("CONNECTING");
+				try
+				{
+					board = connect();
+				}
+				catch(std::system_error& err)
+				{
+					
+				}
+				//send_status(board ? "CONNECTED" : "NO DEVICE FOUND");
+				if(board)
+				{
+					send_status("CONNECTED");
+					connection_status=CS_CONNECTED;
+					continue;
+				}
+				
+				usleep(100);
+				
+				//Check our timeout
+				if(std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch()-start_connecting_initial_ms).count()
+					> start_connecting_timeout)
+				{
+					//Stop connecting
+					connection_status=CS_WAITING_COMMAND;
+					// TODO: add CONNECTION TIMEDOUT status
+					//send_status("CONNECTION TIMEDOUT");
+					send_status("CONNECTION TIMEDOUT");
+				}
+			}
             continue;
         }
 
@@ -191,6 +254,7 @@ int main(int argc, const char* argv[])
         {
             // Board has disconnected
             send_status("DISCONNECTED");
+			connection_status=CS_WAITING_COMMAND;
 
             board = nullptr;
             continue;
