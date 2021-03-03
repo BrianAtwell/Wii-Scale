@@ -158,30 +158,9 @@ int main(int argc, const char* argv[])
 
     current_socket->on("wiiscale-connect", [&](sio::event& ev)
     {
-		/*
-        send_status("CONNECTING");
-        board = connect();
-
-        send_status(board ? "CONNECTED" : "NO DEVICE FOUND");
-		*/
-		//send_status("CONNECTING");
 		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
         connection_status=CS_START_CONNECTING;
     });
-	
-	/*
-	current_socket->on("wiiscale-connect-start", [&](sio::event& ev)
-    {
-        send_status("CONNECTING");
-		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(system_clock::now().time_since_epoch());
-        connection_status=CS_START_CONNECTING;
-    });
-	
-	current_socket->on("wiiscale-connect-stop", [&](sio::event& ev)
-    {
-        connection_status=CS_WAITING_COMMAND;
-    });
-	*/
 
     current_socket->on("wiiscale-disconnect", [&](sio::event& ev)
     {
@@ -213,7 +192,7 @@ int main(int argc, const char* argv[])
 				{
 					
 				}
-				//send_status(board ? "CONNECTED" : "NO DEVICE FOUND");
+				
 				if(board)
 				{
 					send_status("CONNECTED");
@@ -229,8 +208,6 @@ int main(int argc, const char* argv[])
 				{
 					//Stop connecting
 					connection_status=CS_WAITING_COMMAND;
-					// TODO: add CONNECTION TIMEDOUT status
-					//send_status("CONNECTION TIMEDOUT");
 					send_status("CONNECTION TIMEDOUT");
 				}
 			}
