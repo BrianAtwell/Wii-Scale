@@ -164,7 +164,7 @@ int main(int argc, const char* argv[])
 
         send_status(board ? "CONNECTED" : "NO DEVICE FOUND");
 		*/
-		send_status("CONNECTING");
+		//send_status("CONNECTING");
 		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
         connection_status=CS_START_CONNECTING;
     });
