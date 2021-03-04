@@ -1,0 +1,14 @@
+[Unit]
+Description=WiiScales
+After=network-online.target
+
+[Service]
+User=pi
+Type=simple
+ExecStart=/usr/bin/npm --prefix /opt/Wii-Scale/ start
+ExecStop=/usr/bin/npm --prefix /opt/Wii-Scale/ stop
+
+[Install]
+WantedBy=multi-user.target
+
+

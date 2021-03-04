@@ -21,11 +21,23 @@
 	51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+var fs = require('fs');
+
 var server = require('../web/server.js');
 var backend = require('./start-backend.js');
 
 // Starts Wii-Scale application
-backend.start();
+childPid=backend.start();
 
 // Starts the webserver
 server.start();
+
+var process = require('process');
+
+if (typeof process.pid !== 'undefined' && 
+    childPid != undefined) {
+	fileText = "parentPID: "+process.pid+"\n"+"childPID: "+childPid;
+	fs.writeFileSync('.server.pid', fileText, {
+    encoding: 'utf8'
+  })
+}
