@@ -54,12 +54,23 @@ function loadEntries () {
 	entries = new Entries(entriesColl);
 }
 
+function loadLiveEntries () {
+	var liveEntriesColl = db.getCollection('liveentries');
+	if(liveEntriesColl === null) {
+		liveEntriesColl = db.addCollection('entries');
+	}
+	liveentries = new LiveEntries(liveEntriesColl);
+}
+
 function loadHandler () {
 	// Users
 	loadUsers();
 
 	// Entries
 	loadEntries();
+	
+	// LiveEntries
+	loadLiveEntries();
 }
 
 
@@ -71,8 +82,11 @@ module.exports = function(io) {
 
         DEVICE_RCV_CONNECT:         'device connect',
         DEVICE_RCV_DISCONNECT:      'device disconnect',
+		DEVICE_RCV_START_RAW_WEIGHT	'device start raw weight',
+		DEVICE_RCV_STOP_RAW_WEIGHT	'device stop raw weight',
 
         CLIENT_RCV_LOAD:  			'client load',
+		CLIENT_LIVE_RCV_LOAD:		'client live load',
 
         SETTINGS_SEND_VALUES:       'settings values',
 
@@ -84,9 +98,17 @@ module.exports = function(io) {
         ENTRIES_RCV_REMOVE:         'entries delete',
         ENTRIES_RCV_USER:           'entries user',
         ENTRIES_SEND_LIST:   		'entries list',
+		
+		LIVE_ENTRIES_ADD:			'live entries add',
+		LIVE_ENTRIES_REMOVE:		'live entries remove',
+		LIVE_ENTRIES_USER:			'live entries user',
+		LIVE_ENTRIES_SEND_LIST:		'live entries RECEIVE_LIST',
 
         WIISCALE_WEIGHT:        	'wiiscale-weight',
+		WIISCALE_RAW_WEIGHT:		'wiiscale-raw-weight',
         WIISCALE_STATUS:        	'wiiscale-status',
+		WIISCALE_RAW_WEIGHT_MODE:	'wiiscale-raw-weight-mode',
+		WIISCALE_STANDARD_WEIGHT_MODE:	'wiiscale-standard-weight-mode',
         WIISCALE_SEND_CONNECT: 		'wiiscale-connect',
         WIISCALE_SEND_DISCONNECT: 	'wiiscale-disconnect',
     });
@@ -126,7 +148,41 @@ module.exports = function(io) {
 
 			// Send current status to new users
 			socket.emit(cmd.WIISCALE_STATUS, lastCommand);
+			
+			//socket.emit(cmd.WIISCALE_STANDARD_WEIGHT_MODE);
 		});
+		
+		// Send initial data to Live client
+		socket.on(cmd.CLIENT_LIVE_RCV_LOAD, function () {
+			// Send current settings to the user
+			socket.emit(cmd.SETTINGS_SEND_VALUES, {
+				units: process.env.npm_package_config_units,
+			});
+
+			// Send all saved entries to the user
+			socket.emit(cmd.USERS_SEND_LIST, users.get());
+
+			// Send current status to new users
+			socket.emit(cmd.WIISCALE_STATUS, lastCommand);
+			
+			//socket.emit(cmd.WIISCALE_RAW_WEIGHT_MODE);
+		});
+		
+		/*
+		// Send initial data to client
+		socket.on(cmd.CLIENT_RCV_LOAD, function () {
+			// Send current settings to the user
+			socket.emit(cmd.SETTINGS_SEND_VALUES, {
+				units: process.env.npm_package_config_units,
+			});
+
+			// Send all saved entries to the user
+			socket.emit(cmd.USERS_SEND_LIST, users.get());
+
+			// Send current status to new users
+			socket.emit(cmd.WIISCALE_STATUS, lastCommand);
+		});
+		*/
 
 		// Connecto to hardware
 		socket.on(cmd.DEVICE_RCV_CONNECT, function() {
@@ -137,6 +193,18 @@ module.exports = function(io) {
 		socket.on(cmd.DEVICE_RCV_DISCONNECT, function() {
 			io.emit(cmd.WIISCALE_SEND_DISCONNECT);
 		});
+		
+		/*
+		// Start raw weigh device harware
+		socket.on(cmd.DEVICE_RCV_START_RAW_WEIGHT, function() {
+			io.emit(cmd.WIISCALE_RAW_WEIGHT_MODE);
+		});
+		
+		// Stop raw weigh device harware
+		socket.on(cmd.DEVICE_RCV_STOP_RAW_WEIGHT, function() {
+			io.emit(cmd.WIISCALE_STANDARD_WEIGHT_MODE);
+		});
+		*/
 
 		// Save a new entry for user
 		// params.userName 	string
@@ -165,6 +233,36 @@ module.exports = function(io) {
 		socket.on(cmd.ENTRIES_RCV_USER, function(params) {
 			var user = new User(params.name);
 			socket.emit(cmd.ENTRIES_SEND_LIST, entries.getUserEntries(user));
+		});
+		
+		// Save a new entry for user
+		// params.userName 	string
+		// params.weight 	int
+		socket.on(cmd.LIVE_ENTRIES_RCV_ADD, function(params) {
+			var item = new Entry(params.userName, params.weight);
+			liveentries.add(item);
+			liveentries.clamp();
+			db.saveDatabase();
+
+			var user = new User(params.userName);
+			socket.emit(cmd.LIVE_ENTRIES_SEND_LIST, liveentries.getUserEntries(user));
+		});
+
+		// Remove entry
+		// entry 			entry
+		socket.on(cmd.LIVE_ENTRIES_RCV_REMOVE, function(entry) {
+			liveentries.remove(entry);
+			db.saveDatabase();
+
+			var user = new User(entry.userName);
+			socket.emit(cmd.LIVE_ENTRIES_SEND_LIST, entries.getUserEntries(user));
+		});
+
+		// Requests all entries for the user
+		// params.name 		string
+		socket.on(cmd.LIVE_ENTRIES_RCV_USER, function(params) {
+			var user = new User(params.name);
+			socket.emit(cmd.LIVE_ENTRIES_SEND_LIST, liveentries.getUserEntries(user));
 		});
 
 		// Save new user
@@ -195,6 +293,12 @@ module.exports = function(io) {
 
 		// From Wii-Scale
 		// -----------------------------------
+		
+		// Measured raw weight from wii-scale
+		// data.totalWeight 	int
+		socket.on(cmd.WIISCALE_RAW_WEIGHT, function(data){
+			io.emit(cmd.WIISCALE_RAW_WEIGHT, data);
+		});
 
 		// Status from wii-scale
 		// data.status 			string

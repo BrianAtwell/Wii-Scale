@@ -31,29 +31,42 @@
 
         factory('socketCommands', function(){
             var commands = Object.freeze({
-                CLIENT_LOAD:            'client load',
+                CLIENT_LOAD:            	'client load',
+				CLIENT_LIVE_LOAD:		'client live load',
 
-                DEVICE_CONNECT:         'device connect',
-                DEVICE_DISCONNECT:      'device disconnect',
+                DEVICE_CONNECT:         	'device connect',
+                DEVICE_DISCONNECT:      	'device disconnect',
+				DEVICE_START_RAW_WEIGHT		'device start raw weight',
+				DEVICE_STOP_RAW_WEIGHT		'device stop raw weight',
 
-                SETTINGS_RECEIVE_VALS:  'settings values',
+                SETTINGS_RECEIVE_VALS:  	'settings values',
 
-                USERS_ADD:              'users add',
-                USERS_REMOVE:           'users remove',
-                USERS_RECEIVE_LIST:     'users list',
+                USERS_ADD:              	'users add',
+                USERS_REMOVE:           	'users remove',
+                USERS_RECEIVE_LIST:     	'users list',
 
-                ENTRIES_ADD:            'entries add',
-                ENTRIES_REMOVE:         'entries delete',
-                ENTRIES_USER:           'entries user',
-                ENTRIES_RECEIVE_LIST:   'entries list',
+                ENTRIES_ADD:            	'entries add',
+                ENTRIES_REMOVE:         	'entries delete',
+                ENTRIES_USER:           	'entries user',
+                ENTRIES_RECEIVE_LIST:   	'entries list',
+				
+				LIVE_ENTRIES_ADD:			'live entries add',
+				LIVE_ENTRIES_REMOVE:		'live entries remove',
+				LIVE_ENTRIES_USER:			'live entries user',
+				LIVE_ENTRIES_RECEIVE_LIST:	'live entries RECEIVE_LIST',
 
-                WIISCALE_WEIGHT:        'wiiscale-weight',
-                WIISCALE_STATUS:        'wiiscale-status'
+                WIISCALE_WEIGHT:        	'wiiscale-weight',
+				WIISCALE_RAW_WEIGHT:		'wiiscale-raw-weight',
+                WIISCALE_STATUS:        	'wiiscale-status',
+				WIISCALE_RAW_WEIGHT_MODE:	'wiiscale-raw-weight-mode',
+				WIISCALE_STANDARD_WEIGHT_MODE:	'wiiscale-standard-weight-mode',
+				WIISCALE_SEND_CONNECT: 		'wiiscale-connect'
+				
             });
             return commands;
         }).
 
-        factory('client', ['socket', 'socketCommands', function (socket, socketCommands){
+        factory('client', ['$scope', 'socket', 'socketCommands', function ($scope, socket, socketCommands){
             var client = {
                 load: load,
             };
@@ -61,7 +74,17 @@
             return client;
 
             function load() {
-                socket.emit(socketCommands.CLIENT_LOAD);
+				socket.emit(socketCommands.CLIENT_LOAD);
+				/*
+				if(typeof $scope.mainview !== undefined && $scope.mainview == 'LiveController')
+				{
+					socket.emit(socketCommands.CLIENT_LIVE_LOAD);
+				}
+				else
+				{
+					socket.emit(socketCommands.CLIENT_LOAD);
+				}
+				*/
             }
         }]).
 
@@ -119,6 +142,29 @@
 
             function getUserEntries(user) {
                 socket.emit(socketCommands.ENTRIES_USER, user);
+            }
+
+        }]).
+		
+		factory('liveentries', ['socket', 'socketCommands', function (socket, socketCommands){
+            var liveentries = {
+                add: add,
+                remove: remove,
+                getUserEntries: getUserEntries,
+            };
+
+            return liveentries;
+
+            function add(user, weight) {
+                socket.emit(socketCommands.LIVE_ENTRIES_ADD, {userName: user.name, weight: weight});
+            }
+
+            function remove(entry) {
+                socket.emit(socketCommands.LIVE_ENTRIES_REMOVE, entry);
+            }
+
+            function getUserEntries(user) {
+                socket.emit(socketCommands.LIVE_ENTRIES_USER, user);
             }
 
         }]);

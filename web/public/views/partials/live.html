@@ -19,7 +19,7 @@
     with this program; if not, write to the Free Software Foundation, Inc.,
     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 -->
-<div ng-controller="StartController as Start">
+<div ng-controller="LiveController as Live">
 
 	<nav class="navbar navbar-default">
 	    <div class="container-fluid">
@@ -27,12 +27,12 @@
 	            <a class="navbar-brand" href="/">
 	                Wii-Scale
 	            </a>
-	        </div>	        
-			
+	        </div>
+
 			<div class="nav navbar-nav navbar-right nav-controls">
-				<a href="live" class="success animate-ng-show" >
+				<a href="start" class="success animate-ng-show" >
 					<i class="fa fa-compress"></i>
-					Live Mode
+					Standard Mode
 				</a>
 			</div>
 
@@ -169,19 +169,11 @@
 	            <div class="weight" ng-bind-html="measuring.weight | formatWeight:this.$parent.$parent.settings.units"></div>
 	        </div>
 
-	        <div class="col-xs-12 col-md-4 col-md-offset-1">
-	        	<h4 class="icon-heading">
-	        		<i class="fa fa-bookmark-o"></i>
-	        		History for {{ selectedUser.name }}
-	        	</h4>
-	            <history entries="entries"></history>
-	        </div>
-
 	    </div>
 
 	    <div class="row">
 	    	<div class="chart-wrapper">
-    			<line-chart entries="entries"></line-chart>
+    			<live-line-chart liveentries="liveentries"></line-chart>
     		</div>
 	    </div>
 	</div>

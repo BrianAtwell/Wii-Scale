@@ -27,6 +27,8 @@
 
         controller('StartController', ['$scope', '$rootScope', 'socket', 'socketCommands', 'device', 'entries', function ($scope, $rootScope, socket, socketCommands, device, entries) {
 
+			$scope.mainview = 'StartController';
+		
             $scope.measuring = {
                 count: 0,
                 complete: 50,
@@ -71,6 +73,7 @@
 
                 $scope.status.dismiss();
                 $scope.status.start = true;
+				socket.emit(cmd.WIISCALE_STANDARD_WEIGHT_MODE);
             };
 
             function reset() {
@@ -247,6 +250,182 @@
 
             socket.on(socketCommands.USERS_RECEIVE_LIST, function(data) {
                 $scope.users.list = data;
+            });
+
+        }]).
+		
+		controller('LiveController', ['$scope', '$rootScope', 'socket', 'socketCommands', 'device', 'liveentries', function ($scope, $rootScope, socket, socketCommands, device, liveentries) {
+			
+			$scope.mainview = 'LiveController';
+
+            $scope.measuring = {
+                count: 0,
+                complete: 50,
+                progress: 0,
+                weight: 0
+            };
+
+            $rootScope.settings = { };
+
+            $scope.status = {
+
+                start: false,
+                search: false,
+                ready: false,
+                measuring: false,
+                done: false,
+                disconnecting: false,
+				timedout: false,
+                warning: false,
+
+                dismiss: function() {
+                    this.start = false;
+                    this.search = false;
+                    this.ready = false;
+                    this.measuring = false;
+                    this.done = false;
+                    this.disconnecting = false;
+					this.timedout = false;
+                    this.warning = false;
+                }
+            };
+
+            $scope.controls = {
+                connect: true,
+                disconnect: false
+            };
+
+            var init = function() {
+                reset();
+                $scope.controls.connect = true;
+                $scope.controls.disconnect = false;
+
+                $scope.status.dismiss();
+                $scope.status.start = true;
+            };
+
+            function reset() {
+                $scope.measuring.count = 0;
+                $scope.measuring.complete = 50;
+                $scope.measuring.progress = 0;
+				socket.emit(cmd.WIISCALE_RAW_WEIGHT_MODE);
+                setProgress();
+            }         
+
+            function done() {
+                return $scope.measuring.count >= $scope.measuring.complete;
+            }
+
+            function setProgress() {
+                var progress = Math.round(($scope.measuring.count / $scope.measuring.complete) * 100);
+                if(progress <= 100) {
+                    $scope.measuring.progress = progress;
+                }        
+            }
+
+
+            // Device
+
+            $scope.connect = function() {
+                device.connect();
+            };
+
+            $scope.disconnect = function() {
+                device.disconnect();
+
+                $scope.status.dismiss();
+                $scope.status.disconnecting = true; 
+            };
+
+
+            // From wii-scale
+
+            function weightRawReading(totalWeight) {    
+				$scope.measuring.weight = totalWeight;
+				liveentries.add($rootScope.selectedUser, totalWeight);
+                
+
+                //setProgress();
+                //$scope.measuring.count++;
+            }
+
+
+            // Socket
+
+            socket.on(socketCommands.SETTINGS_RECEIVE_VALS, function(data) {
+                $rootScope.settings = data;
+            });
+
+            socket.on(socketCommands.ENTRIES_RECEIVE_LIST, function(data) {
+                if(data !== null && data !== undefined) {
+                    $scope.entries = {};
+                    $scope.entries.list = data;
+                }
+            });
+
+            socket.on(socketCommands.WIISCALE_RAW_WEIGHT, function(data){
+                weightRawReading(data.totalWeight.toFixed(1));
+            });
+
+            socket.on(socketCommands.WIISCALE_STATUS, function(data) {
+                switch(data.status) {
+                    case "CONNECTING":
+                        $scope.status.dismiss();
+                        $scope.status.search = true;
+
+                        $scope.controls.connect = false;
+                        $scope.controls.disconnect = true;
+                        break;
+
+                    case "NO DEVICE FOUND":
+                        $scope.status.dismiss();
+                        $scope.status.warning = true;
+
+                        $scope.controls.connect = true;
+                        $scope.controls.disconnect = false;
+                        break;
+
+                    case "CONNECTED":
+                        reset();
+                        $scope.status.dismiss();
+                        $scope.status.ready = true;
+
+                        $scope.controls.connect = false;
+                        $scope.controls.disconnect = true;
+                        break;
+
+                    case "DISCONNECTED":
+                        $scope.status.dismiss();
+                        $scope.status.start = true;
+
+                        $scope.controls.connect = true;
+                        $scope.controls.disconnect = false;
+                        break;
+						
+					case "CONNECTION TIMEDOUT":
+                        $scope.status.dismiss();
+                        $scope.status.timedout = true;
+
+                        $scope.controls.connect = true;
+                        $scope.controls.disconnect = false;
+                        break;
+
+                    case "MEASURING":
+                        $scope.status.dismiss();
+                        $scope.status.measuring = true;
+
+                        $scope.controls.connect = false;
+                        $scope.controls.disconnect = true;
+                        break;
+
+                    case "DONE":
+                        reset();
+                        break;
+
+                    case "NO PREVIOUS STATUS":
+                        init();
+                        break;
+                }
             });
 
         }]);

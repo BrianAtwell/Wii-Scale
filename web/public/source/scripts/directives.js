@@ -350,6 +350,154 @@
 
 				}
 			};
+		}]).
+		
+		directive('liveLineChart', ['$filter', '$rootScope', '$sce', function ($filter, $rootScope, $sce){
+			return {
+				scope: {
+					liveentries: '='
+				},
+				restrict: 'E',
+				template: '<div class=\"ct-chart\"></div>',
+				link: function($scope, iElm, iAttrs, controller) {
+
+					function formatDate(date) {
+						return $filter('date')(date, 'dd/MM');
+					}
+
+					var options = {
+						showPoint: true,
+						fullWidth: true,
+						chartPadding: {
+							bottom: 50,
+							right: 40,
+							left: 0
+						},
+						height: 180,
+						axisX: {
+							showLabel: true,
+							labelOffset: {
+								x: -16,
+								y: 20
+							},
+							showGrid: false
+						},
+						axisY: {
+							showLabel: false,
+							showGrid: false,
+						},						
+					};
+
+					var responsiveOptions = [
+						['screen and (max-width: 767px)', {
+							axisX: {
+								showLabel: false
+							},
+						}],
+						['screen and (min-width: 768px)', {
+							axisX: {
+								showLabel: true
+							},
+						}],
+					];
+
+
+					var loadData = function() {
+						var set = 0;
+						var data = {
+							labels: [],
+							series: [[]]
+						};
+
+						var graphStart = Math.min($scope.liveentries.list.length, 14);
+
+						for (var i = graphStart - 1; i >= 0; i--) {
+							data.labels.push(formatDate($scope.liveentries.list[i].dateTime));
+							data.series[set].push($scope.liveentries.list[i].weight);
+						}
+
+						return data;
+					};
+
+					function drawChart(data) {
+
+						// Chart
+						var chart = new Chartist.Line('.ct-chart', data, options, responsiveOptions);
+
+						// Animation
+						chart.on('draw', function(data) {
+							if(data.type === 'line' || data.type === 'area') {
+								data.element.animate({
+									d: {
+										begin: 2000 * data.index,
+										dur: 2000,
+										from: data.path.clone().scale(1, 0).translate(0, data.chartRect.height()).stringify(),
+										to: data.path.clone().stringify(),
+										easing: Chartist.Svg.Easing.easeOutQuint
+									}
+								});
+							}
+						});
+
+						// Tooltip
+						var element = angular.element(chart.container);
+						var $toolTip = element
+							.append('<div class="tooltip"></div>')
+							.find('.tooltip')
+							.hide();
+
+						element.on('mouseenter', '.ct-point', function() {
+							var $point = $(this);
+							var value = $point.attr('ct:value');
+
+							$toolTip.html(
+								$sce.getTrustedHtml($filter('formatWeight')(value, $rootScope.settings.units))
+							).show();
+
+							$toolTip.css({
+								left: $point.offset().left - (($toolTip.width() / 2) + 8),
+								top: $point.offset().top - 40
+							});
+						});
+
+						element.on('mouseleave', '.ct-point', function() {
+							$toolTip.hide();
+						});
+					}
+
+					function removeGraph() {
+						var chart = angular.element('.ct-chart');
+						if(chart !== undefined) {
+							chart.children().remove();
+						}
+					}
+
+					function updateGraph() {
+						if($scope.liveentries.list.length > 1) {
+							drawChart(loadData());
+						} else {
+							removeGraph();
+						}
+					}
+
+					$scope.$watch('liveentries.list', function(newValue, oldValue) {
+						if(newValue === undefined) {
+							return;
+						}
+
+						updateGraph();
+					});
+
+					$scope.$watch('$rootScope.selectedUser', function(newValue, oldValue) {
+						if(newValue === oldValue) {
+							return;
+						}
+
+						updateGraph();
+					});
+
+				}
+			};
 		}]);
 
 })();

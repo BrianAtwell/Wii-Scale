@@ -34,7 +34,7 @@
         'app.services'
     ]).
 
-    run(['$rootScope', '$cookies', 'entries', 'client', function ($rootScope, $cookies, entries, client) {
+    run(['$rootScope', '$cookies', 'entries', 'liveentries', 'client', function ($rootScope, $cookies, entries, liveentries, client) {
         $rootScope.defaultUser = {
             name: "Guest"
         };
@@ -57,8 +57,15 @@
             when('/', {
                 templateUrl: '/partials/start'
             }).
+			.when('/live', {
+				templateUrl: '/partials/live.html',
+				controller: 'LiveController'
+			}).
             when('/settings', {
                 templateUrl: '/partials/settings'
+            }).
+			when('/start', {
+                redirectTo: '/'
             }).
             otherwise({
                 redirectTo: '/'

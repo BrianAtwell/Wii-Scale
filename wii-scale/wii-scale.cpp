@@ -36,11 +36,15 @@ namespace options = boost::program_options;
 sio::socket::ptr current_socket;
 std::unique_ptr<XWiiIface> board;
 
-enum ConnectionStatus { CS_WAITING_COMMAND, CS_START_CONNECTING, CS_CONNECTED};
+enum class ConnectionStatus { WAITING_COMMAND, START_CONNECTING, CONNECTED};
 
-ConnectionStatus connection_status=CS_WAITING_COMMAND;
-std::chrono::milliseconds start_connecting_initial_ms;
-int start_connecting_timeout=20000;
+enum class WeightState { STANDARD, LIVE_MODE};
+
+ConnectionStatus connectionStatus=ConnectionStatus::WAITING_COMMAND;
+std::chrono::milliseconds startConnectingInitialMS;
+int startConnectingTimeout=20000;
+
+WeightState weightState = WeightState::STANDARD;
 
 const int sensitivity = 3000; // as 10ths of a kg
 
@@ -100,6 +104,70 @@ void send_weight(std::deque<uint32_t> *totals, double calibrate)
     current_socket->emit("wiiscale-weight", object);
 }
 
+void send_raw_weight(std::deque<uint32_t> *totals, double calibrate)
+{
+    static std::chrono::high_resolution_clock::time_point lastTime;
+    std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastTime);
+
+    if(ms.count() < 50)
+    {
+        // Only send the weight every 50 milliseconds
+        return;
+    }
+
+    lastTime = std::chrono::high_resolution_clock::now();
+
+    // First, calculate the mean
+    double mean = std::accumulate(totals->begin(), totals->end(), 0.0) / totals->size();
+
+    // Next, calculate the standard deviation
+    uint32_t variance = 0;
+
+    for(auto iter = totals->begin(); iter != totals->end(); ++iter)
+    {
+        variance += pow(*iter - mean, 2);
+    }
+
+    variance /= totals->size();
+    double stdev = sqrt(variance);
+
+    /* Finally, discard any values from the start of measuring that are
+     * significantly lower from the average than the standard deviation.
+     * This prevents values generated when stepping on to the balance board
+     * from dragging the mean down irrespective of how quickly the user steps.
+     */
+    double threshold = (mean - (stdev * stdDevCutoff));
+
+    while(totals->at(0) < threshold)
+    {
+        totals->pop_front();
+    }
+
+    auto value = sio::double_message::create(((double)mean / 100) + calibrate);
+    auto object = sio::object_message::create();
+    std::static_pointer_cast<sio::object_message>(object)->insert("totalWeight", value);
+
+    current_socket->emit("wiiscale-raw-weight", object);
+	
+	total.clear();
+}
+
+void send_raw_measuring_status()
+{
+	static std::chrono::high_resolution_clock::time_point lastTime;
+    std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastTime);
+	
+	if(ms.count() < 500)
+    {
+        // Only send the weight every 50 milliseconds
+        return;
+    }
+	
+	lastTime = std::chrono::high_resolution_clock::now();
+	
+	send_status("MEASURING");
+}
+
 std::unique_ptr<XWiiIface> connect()
 {
     XWiiMonitor monitor;
@@ -126,7 +194,7 @@ int main(int argc, const char* argv[])
     int port = 8080;
     double calibrate = 0;
 	// Initialize to dummy state to prevent unassigned state unstability
-	start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
+	startConnectingInitialMS=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
 
     options::options_description desc("wii-scale");
 
@@ -158,8 +226,8 @@ int main(int argc, const char* argv[])
 
     current_socket->on("wiiscale-connect", [&](sio::event& ev)
     {
-		start_connecting_initial_ms=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
-        connection_status=CS_START_CONNECTING;
+		startConnectingInitialMS=std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch());
+        connectionStatus=ConnectionStatus::START_CONNECTING;
     });
 
     current_socket->on("wiiscale-disconnect", [&](sio::event& ev)
@@ -167,8 +235,18 @@ int main(int argc, const char* argv[])
         if(board)
         {
             board->Disconnect();
-			connection_status=CS_WAITING_COMMAND;
+			connectionStatus=ConnectionStatus::WAITING_COMMAND;
         }
+    });
+	
+	current_socket->on("wiiscale-standard-weight-mode", [&](sio::event& ev)
+    {
+		weightState=WeightState::STANDARD;
+    });
+	
+	current_socket->on("wiiscale-raw-weight-mode", [&](sio::event& ev)
+    {
+        weightState=WeightState::LIVE_MODE;
     });
 
     // Scale
@@ -177,11 +255,11 @@ int main(int argc, const char* argv[])
         if(!board)
         {
             // Waiting for connection or command
-			if(connection_status == CS_WAITING_COMMAND)
+			if(connectionStatus == ConnectionStatus::WAITING_COMMAND)
 			{
 				usleep(1000);
 			}
-			else if(connection_status == CS_START_CONNECTING)
+			else if(connectionStatus == ConnectionStatus::START_CONNECTING)
 			{
 				send_status("CONNECTING");
 				try
@@ -196,73 +274,107 @@ int main(int argc, const char* argv[])
 				if(board)
 				{
 					send_status("CONNECTED");
-					connection_status=CS_CONNECTED;
+					connectionStatus=ConnectionStatus::CONNECTED;
 					continue;
 				}
 				
 				usleep(100);
 				
 				//Check our timeout
-				if(std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch()-start_connecting_initial_ms).count()
-					> start_connecting_timeout)
+				if(std::chrono::duration_cast< std::chrono::milliseconds >(std::chrono::system_clock::now().time_since_epoch()-startConnectingInitialMS).count()
+					> startConnectingTimeout)
 				{
 					//Stop connecting
-					connection_status=CS_WAITING_COMMAND;
+					connectionStatus=ConnectionStatus::WAITING_COMMAND;
 					send_status("CONNECTION TIMEDOUT");
 				}
 			}
             continue;
         }
+		
+		if(weightState == WeightState::STANDARD)
+		{
+			// Post ready status once
+			if(!ready)
+			{
+				firstStep = true;
+				total.clear();
 
-        // Post ready status once
-        if(!ready)
-        {
-            firstStep = true;
-            total.clear();
+				ready = true;
+				send_status("READY");
+			}
 
-            ready = true;
-            send_status("READY");
-        }
+			struct xwii_event event;
+			board->Dispatch(XWII_EVENT_WATCH | XWII_EVENT_BALANCE_BOARD, &event);
 
-        struct xwii_event event;
-        board->Dispatch(XWII_EVENT_WATCH | XWII_EVENT_BALANCE_BOARD, &event);
+			if(event.type == XWII_EVENT_WATCH)
+			{
+				// Board has disconnected
+				send_status("DISCONNECTED");
+				connectionStatus=ConnectionStatus::WAITING_COMMAND;
 
-        if(event.type == XWII_EVENT_WATCH)
-        {
-            // Board has disconnected
-            send_status("DISCONNECTED");
-			connection_status=CS_WAITING_COMMAND;
+				board = nullptr;
+				continue;
+			}
 
-            board = nullptr;
-            continue;
-        }
+			// Measure weight
+			uint32_t totalWeight = 0;
 
-        // Measure weight
-        uint32_t totalWeight = 0;
+			for(int i = 0; i < 4; i++)
+			{
+				totalWeight += event.v.abs[i].x;
+			}
 
-        for(int i = 0; i < 4; i++)
-        {
-            totalWeight += event.v.abs[i].x;
-        }
+			if(totalWeight <= sensitivity)
+			{
+				if(!firstStep)
+				{
+					ready = false;
+					send_status("DONE");
+				}
 
-        if(totalWeight <= sensitivity)
-        {
-            if(!firstStep)
-            {
-                ready = false;
-                send_status("DONE");
-            }
+				continue;
+			}
 
-            continue;
-        }
+			if(firstStep)
+			{
+				firstStep = false;
+				send_status("MEASURING");
+			}
 
-        if(firstStep)
-        {
-            firstStep = false;
-            send_status("MEASURING");
-        }
+			total.push_back(totalWeight);
+			send_weight(&total, calibrate);
+		}
+		// weightState==WeightState::LIVE_MODE;
+		else
+		{
 
-        total.push_back(totalWeight);
-        send_weight(&total, calibrate);
+			struct xwii_event event;
+			board->Dispatch(XWII_EVENT_WATCH | XWII_EVENT_BALANCE_BOARD, &event);
+
+			if(event.type == XWII_EVENT_WATCH)
+			{
+				// Board has disconnected
+				send_status("DISCONNECTED");
+				connectionStatus=ConnectionStatus::WAITING_COMMAND;
+
+				board = nullptr;
+				continue;
+			}
+
+			// Measure weight
+			uint32_t totalWeight = 0;
+
+			for(int i = 0; i < 4; i++)
+			{
+				totalWeight += event.v.abs[i].x;
+			}
+			
+			send_raw_measuring_status();
+			
+			total.push_back(totalWeight);
+
+			send_raw_weight(total, calibrate);
+		}
     }
 }
