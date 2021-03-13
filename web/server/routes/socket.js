@@ -22,11 +22,14 @@
 
 var Entry = require('../models/entry.js');
 var Entries = require('../models/entries.js');
+var LiveEntry = require('../models/liveentry.js');
+var LiveEntries = require('../models/liveentries.js');
 var User = require('../models/user.js');
 var Users = require('../models/users.js');
 
 var users = null;
 var entries = null;
+var liveentries = null;
 var NO_PREVIOUS_STATUS = "NO PREVIOUS STATUS";
 
 
@@ -57,7 +60,7 @@ function loadEntries () {
 function loadLiveEntries () {
 	var liveEntriesColl = db.getCollection('liveentries');
 	if(liveEntriesColl === null) {
-		liveEntriesColl = db.addCollection('entries');
+		liveEntriesColl = db.addCollection('liveentries');
 	}
 	liveentries = new LiveEntries(liveEntriesColl);
 }
@@ -82,8 +85,8 @@ module.exports = function(io) {
 
         DEVICE_RCV_CONNECT:         'device connect',
         DEVICE_RCV_DISCONNECT:      'device disconnect',
-		DEVICE_RCV_START_RAW_WEIGHT	'device start raw weight',
-		DEVICE_RCV_STOP_RAW_WEIGHT	'device stop raw weight',
+		DEVICE_RCV_START_RAW_WEIGHT: 'device start raw weight',
+		DEVICE_RCV_STOP_RAW_WEIGHT:	'device stop raw weight',
 
         CLIENT_RCV_LOAD:  			'client load',
 		CLIENT_LIVE_RCV_LOAD:		'client live load',
@@ -110,7 +113,7 @@ module.exports = function(io) {
 		WIISCALE_RAW_WEIGHT_MODE:	'wiiscale-raw-weight-mode',
 		WIISCALE_STANDARD_WEIGHT_MODE:	'wiiscale-standard-weight-mode',
         WIISCALE_SEND_CONNECT: 		'wiiscale-connect',
-        WIISCALE_SEND_DISCONNECT: 	'wiiscale-disconnect',
+        WIISCALE_SEND_DISCONNECT: 	'wiiscale-disconnect'
     });
 
 	var connectedUsers = -1; // Start at negative one since wii-scale becomes a user
@@ -152,6 +155,7 @@ module.exports = function(io) {
 			//socket.emit(cmd.WIISCALE_STANDARD_WEIGHT_MODE);
 		});
 		
+		/*
 		// Send initial data to Live client
 		socket.on(cmd.CLIENT_LIVE_RCV_LOAD, function () {
 			// Send current settings to the user
@@ -167,6 +171,7 @@ module.exports = function(io) {
 			
 			//socket.emit(cmd.WIISCALE_RAW_WEIGHT_MODE);
 		});
+		*/
 		
 		/*
 		// Send initial data to client
@@ -241,7 +246,7 @@ module.exports = function(io) {
 		socket.on(cmd.LIVE_ENTRIES_RCV_ADD, function(params) {
 			var item = new Entry(params.userName, params.weight);
 			liveentries.add(item);
-			liveentries.clamp();
+			//liveentries.clamp();
 			db.saveDatabase();
 
 			var user = new User(params.userName);

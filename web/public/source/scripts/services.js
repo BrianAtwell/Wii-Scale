@@ -36,8 +36,8 @@
 
                 DEVICE_CONNECT:         	'device connect',
                 DEVICE_DISCONNECT:      	'device disconnect',
-				DEVICE_START_RAW_WEIGHT		'device start raw weight',
-				DEVICE_STOP_RAW_WEIGHT		'device stop raw weight',
+				DEVICE_START_RAW_WEIGHT:	'device start raw weight',
+				DEVICE_STOP_RAW_WEIGHT:		'device stop raw weight',
 
                 SETTINGS_RECEIVE_VALS:  	'settings values',
 

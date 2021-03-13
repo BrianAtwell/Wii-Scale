@@ -130,6 +130,12 @@ module.exports = function (grunt) {
 				src: ['**', '!**/less/**', '!**/images/**', '!**/scripts/**'],
 				dest: '<%= path.dist.root %>'
 			},
+			buildDebug: {
+				expand: true,
+				cwd: '<%= path.src.root %>',
+				src: ['**', '!**/less/**', '!**/images/**'],
+				dest: '<%= path.dist.root %>'
+			},
 			fontawesome: {
 				expand: true,
 				cwd: '<%= path.vendor %>/font-awesome/fonts/',
@@ -181,7 +187,8 @@ module.exports = function (grunt) {
 	grunt.loadNpmTasks('grunt-simple-mocha');
 
 	grunt.registerTask('default', ['build', 'watch']);
-	grunt.registerTask('build', ['less', 'cssmin', 'jshint:build', 'jshint:test', 'simplemocha', 'concat', 'uglify', 'imagemin', 'copy']);
+	grunt.registerTask('build', ['less', 'cssmin', 'jshint:build', 'jshint:test', 'simplemocha', 'concat', 'uglify', 'imagemin', 'copy:build', 'copy:fontawesome']);
+	grunt.registerTask('build-debug', ['less', 'cssmin', 'jshint:build', 'jshint:test', 'simplemocha', 'concat', 'imagemin', 'copy:build', 'copy:fontawesome']);
 	grunt.registerTask('clean-build', ['clean', 'build']);
 
 };

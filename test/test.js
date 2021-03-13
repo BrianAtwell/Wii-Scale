@@ -26,6 +26,8 @@ var User = require('../web/server/models/user.js');
 var Users = require('../web/server/models/users.js');
 var Entry = require('../web/server/models/entry.js');
 var Entries = require('../web/server/models/entries.js');
+var LiveEntries = require('../web/server/models/liveentries.js');
+var LiveEntry = require('../web/server/models/liveentry.js');
 
 var loki = require('lokijs'),
 	db = new loki('test-data.json');
@@ -171,6 +173,86 @@ describe("Server", function () {
 				.and.to.include(entry2)
 				.and.to.not.include(entry3)
 				.and.to.not.include(entry4);
+		});
+
+	});
+	
+	describe("LiveEntry", function () {
+
+		it('should create an liveentry', function () {
+			var liveentry = new LiveEntry('John Doe', 30);
+			expect(liveentry).to.have.property('userName').and.equal('John Doe');
+			expect(liveentry).to.have.property('weight').and.equal(30);
+			expect(liveentry).to.have.property('dateTime').to.be.a('date');
+		});
+
+	});
+	
+	describe("LiveEntries", function () {
+
+		var liveentries = null;
+
+		beforeEach(function() {
+			liveentries = new LiveEntries(db.addCollection('liveentries'));
+		});
+
+		it('should have created a new liveentries instance', function () {			
+			expect(liveentries).to.not.be.equal(null);
+		});
+
+		it('should create a new collection if there is none', function () {
+			expect(liveentries.get()).to.not.equal(null);
+		});
+
+		it('should add an liveentry', function () {
+			var liveentry = new LiveEntry('John Doe', 30);
+			liveentries.add(liveentry);
+			expect(liveentries.get()).length(1);
+		});
+
+		it('should remove liveentry', function () {
+			var liveentry = new LiveEntry('John Doe', 30);
+
+			liveentries.add(liveentry);
+			expect(liveentries.get()).length(1);
+
+			liveentries.remove(liveentry);
+			expect(liveentries.get()).length(0);
+		});
+
+		it('should remove all liveentries for user', function () {
+			var user1 = new User('John Doe');
+			var user2 = new User('Jane Doe');
+
+			liveentries.add(new LiveEntry(user1.name, 10));
+			liveentries.add(new LiveEntry(user1.name, 20));
+			liveentries.add(new LiveEntry(user2.name, 30));
+
+			liveentries.removeUserEntries(user1);
+			expect(liveentries.get()).length(1);
+		});
+
+		it('should get all users liveentries', function () {
+			var user1 = new User('John Doe');
+			var user2 = new User('Jane Doe');
+
+			var liveentry1 = new LiveEntry(user1.name, 10);
+			var liveentry2 = new LiveEntry(user1.name, 20);
+			var liveentry3 = new LiveEntry(user2.name, 30);
+			var liveentry4 = new LiveEntry(user2.name, 40);
+
+			liveentries.add(liveentry1);
+			liveentries.add(liveentry2);
+			liveentries.add(liveentry3);
+			liveentries.add(liveentry4);
+
+			var result = liveentries.getUserEntries(user1);
+
+			expect(result)
+				.to.include(liveentry1)
+				.and.to.include(liveentry2)
+				.and.to.not.include(liveentry3)
+				.and.to.not.include(liveentry4);
 		});
 
 	});

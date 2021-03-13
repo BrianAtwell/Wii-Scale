@@ -49,6 +49,7 @@
         }
         
         entries.getUserEntries($rootScope.selectedUser);
+		liveentries.getUserEntries($rootScope.selectedUser);
     }]).
 
     config(['$routeProvider', '$locationProvider', function ($routeProvider, $locationProvider) {
@@ -57,9 +58,8 @@
             when('/', {
                 templateUrl: '/partials/start'
             }).
-			.when('/live', {
-				templateUrl: '/partials/live.html',
-				controller: 'LiveController'
+			when('/live', {
+				templateUrl: '/partials/live'
 			}).
             when('/settings', {
                 templateUrl: '/partials/settings'

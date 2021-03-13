@@ -149,7 +149,7 @@ void send_raw_weight(std::deque<uint32_t> *totals, double calibrate)
 
     current_socket->emit("wiiscale-raw-weight", object);
 	
-	total.clear();
+	totals->clear();
 }
 
 void send_raw_measuring_status()
@@ -374,7 +374,7 @@ int main(int argc, const char* argv[])
 			
 			total.push_back(totalWeight);
 
-			send_raw_weight(total, calibrate);
+			send_raw_weight(&total, calibrate);
 		}
     }
 }

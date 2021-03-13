@@ -356,10 +356,10 @@
                 $rootScope.settings = data;
             });
 
-            socket.on(socketCommands.ENTRIES_RECEIVE_LIST, function(data) {
+            socket.on(socketCommands.LIVE_ENTRIES_RECEIVE_LIST, function(data) {
                 if(data !== null && data !== undefined) {
-                    $scope.entries = {};
-                    $scope.entries.list = data;
+                    $scope.liveentries = {};
+                    $scope.liveentries.list = data;
                 }
             });
 
